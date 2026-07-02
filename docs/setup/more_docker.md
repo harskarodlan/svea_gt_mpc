@@ -203,7 +203,7 @@ gitGraph
     **Note:** You cannot use `DESKTOP=1` on SVEA, it will only work on `amd64`
     (normal) computers.
 
-- Continue to [I’m ready to start development](4_docker.md#im-ready-to-start-development).
+- Continue to [I’m ready to start development](docker.md#im-ready-to-start-development).
 
 ---
 
@@ -233,7 +233,7 @@ for supported architectures such as `amd64`, not on the NVIDIA TX2).
 **Instructions**
 
 - Make sure to build and run using `DESKTOP=1` as described in
-  [I'm starting a new project](4_docker.md#im-starting-a-new-project) and
+  [I'm starting a new project](docker.md#im-starting-a-new-project) and
   [I will work on a single package](#i-will-work-on-a-single-package).
 
 ---
