@@ -22,3 +22,21 @@ __pycache__/
 venv/
 site/
 
+src/svea_core/
+src/svea_examples/
+src/svea_localization/
+
+src/gt_mpc/gt_mpc/controllers/oldsolver.jl
+src/gt_mpc/scripts/pure_pursuit.py
+src/gt_mpc/scripts/overtake_v2.py
+src/gt_mpc/launch/floor2.xml
+
+firmware/
+docs/
+foxglove/
+mkdocs.yml
+README.md
+LICENSE
+util/
+entrypoint
+.github/
