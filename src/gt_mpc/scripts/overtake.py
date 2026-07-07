@@ -37,8 +37,6 @@ class OvertakeNode(rx.Node):
     initial_pose_x_b = rx.Parameter(0.0)
     initial_pose_y_b = rx.Parameter(0.0)
 
-    MIN_VEL = 0.2
-
     def __init__(self, controller: GameController):
         self.controller = controller
         super().__init__()
@@ -105,12 +103,7 @@ class OvertakeNode(rx.Node):
         case = 'Overtake' if (p1 - p2) < self.MIN_DIST else 'Platoon'
         self.get_logger().info(case)
 
-        # u1=[accel1, steer1], u2=[accel2, steer2]
-        if v1 < self.MIN_VEL and v2 < self.MIN_VEL:
-            self.get_logger().info("Speeding up!")
-            u1 = u2 = [1.0, 0.0] # accelerate both cars straight ahead
-        else:
-            u1, u2 = self.controller.compute_control([p1, v1, l1, p2, v2, l2], case)
+        u1, u2 = self.controller.compute_control([p1, v1, l1, p2, v2, l2], case)
 
         self.get_logger().info("Control A: accel1: {:.2f}, steer1: {:.2f}".format(u1[0], u1[1]))
         self.get_logger().info("Control B: accel2: {:.2f}, steer2: {:.2f}".format(u2[0], u2[1]))
