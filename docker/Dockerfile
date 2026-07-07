@@ -37,17 +37,27 @@ ENV PATH="/root/.juliaup/bin:$PATH"
 RUN pip install --break-system-packages juliacall
 
 # Install Julia packages through juliacall so they land in the pyjuliapkg
-# environment that juliacall actually uses. Note:
-# - Pkg.add downloads packages.
-# - "using" DyNECT and DAQPBase precompiles them to speed up import time.
-# - DyNECT is installed from GitHub fork with changed project.toml file
+# environment that juliacall actually uses.
+# - Pkg.add downloads packages and resolves/updates the shared Manifest.
+# - DyNECT is installed from GitHub fork with changed project.toml file.
+# - Monviso is pinned to an older commit because newer Monviso versions
+#   removed the "VI" type that this DyNECT fork still relies on.
 RUN python3 -c "\
 from juliacall import Main as jl; \
 jl.seval('import Pkg'); \
 jl.seval('Pkg.add(url=\"https://github.com/darnstrom/ParametricDAQP.jl\")'); \
-jl.seval('Pkg.add(url=\"https://github.com/nicomignoni/Monviso.jl\")'); \
+jl.seval('Pkg.add(url=\"https://github.com/nicomignoni/Monviso.jl\", rev=\"a99d4e447e39db8086c54906ab1d5d09a8f983a0\")'); \
 jl.seval('Pkg.add(\"DAQPBase\")'); \
 jl.seval('Pkg.add(url=\"https://github.com/harskarodlan/DyNECT\", rev=\"iterative_linearization\")'); \
+"
+
+# Run this in a new process (not the one that ran Pkg.add above), so it
+# compiles against the final package versions written to disk - not
+# versions still sitting in that other process's memory. Otherwise the
+# cache doesn't match what's actually used later, so Julia recompiles
+# everything every time the app runs.
+RUN python3 -c "\
+from juliacall import Main as jl; \
 jl.seval('using DyNECT; using DAQPBase'); \
 print('Julia packages OK'); \
 "
