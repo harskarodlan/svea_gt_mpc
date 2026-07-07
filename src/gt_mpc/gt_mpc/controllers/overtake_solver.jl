@@ -47,7 +47,7 @@ At each time step:
 T_hor = 10
 Δt = 0.1 #sampling time
 v_ref = [5., 7.] # reference speed for each agent in carlength/s. Car length is 3 m (defined in the plot script)
-v_min = 0.2 # 3.
+v_min = -0.1 # 3.
 v_max = 1.7 # 10.
 #d_overtake = 3. # Distance at which overtake is initiated, in car length-unit
 a_max = 1. # max acceleration
