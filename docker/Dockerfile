@@ -42,13 +42,18 @@ RUN pip install --break-system-packages juliacall
 # - DyNECT is installed from GitHub fork with changed project.toml file.
 # - Monviso is pinned to an older commit because newer Monviso versions
 #   removed the "VI" type that this DyNECT fork still relies on.
-RUN python3 -c "\
+# - Overtake is our own local package (src/gt_mpc/gt_mpc/julia/Overtake),
+#   added via Pkg.develop so it's loaded straight from that path - editing
+#   it later doesn't need a rebuild, just a relaunch (src/ is live-mounted
+#   at runtime the same way it's bind-mounted here at build time).
+RUN --mount=type=bind,source=./src,target=./src,readonly python3 -c "\
 from juliacall import Main as jl; \
 jl.seval('import Pkg'); \
 jl.seval('Pkg.add(url=\"https://github.com/darnstrom/ParametricDAQP.jl\")'); \
 jl.seval('Pkg.add(url=\"https://github.com/nicomignoni/Monviso.jl\", rev=\"a99d4e447e39db8086c54906ab1d5d09a8f983a0\")'); \
 jl.seval('Pkg.add(\"DAQPBase\")'); \
 jl.seval('Pkg.add(url=\"https://github.com/harskarodlan/DyNECT\", rev=\"iterative_linearization\")'); \
+jl.seval('Pkg.develop(path=\"/svea_ws/src/gt_mpc/gt_mpc/julia/Overtake\")'); \
 "
 
 # Run this in a new process (not the one that ran Pkg.add above), so it
@@ -56,9 +61,10 @@ jl.seval('Pkg.add(url=\"https://github.com/harskarodlan/DyNECT\", rev=\"iterativ
 # versions still sitting in that other process's memory. Otherwise the
 # cache doesn't match what's actually used later, so Julia recompiles
 # everything every time the app runs.
-RUN python3 -c "\
+# "using" DyNECT and DAQPBase precompiles them to speed up import time.
+RUN --mount=type=bind,source=./src,target=./src,readonly python3 -c "\
 from juliacall import Main as jl; \
-jl.seval('using DyNECT; using DAQPBase'); \
+jl.seval('using Overtake'); \
 print('Julia packages OK'); \
 "
 

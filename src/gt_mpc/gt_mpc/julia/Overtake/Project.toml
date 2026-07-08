@@ -1,0 +1,9 @@
+name = "Overtake"
+uuid = "cf84cc25-3834-4b77-8cee-bcef46b8c696"
+version = "0.1.0"
+
+[deps]
+DAQPBase = "833476c3-a8c0-4073-9b64-6473509843fe"
+DyNECT = "858066fe-dd44-4a3d-96f2-b51f0b4e43b3"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
