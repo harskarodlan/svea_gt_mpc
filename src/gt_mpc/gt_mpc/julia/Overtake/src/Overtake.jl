@@ -41,27 +41,31 @@ At each time step:
     - return u1, u2 to overtake.py
 """
 
+# ALL PARAMETERS BELOW ARE IN SI UNITS (meters not carlengths)
+
+lcar = 0.523 # car length in meters
+lane_width = 0.5
 
 # =================================================================================
-# DEFINE GAME, copied from nonlinear.jl in DyNECT repo example
+# DEFINE GAME, based on nonlinear.jl in DyNECT repo example
 # =================================================================================
 
 # Parameters
 #T_sim = 200 # Simulation length
 T_hor = 10
 Δt = 0.1 #sampling time
-v_ref = [5., 7.] # reference speed for each agent in carlength/s. Car length is 3 m (defined in the plot script)
+v_ref = [1.2, 1.7] # [5., 7.] # reference speed for each agent in m/s. 
 v_min = -0.1 # 3.
 v_max = 1.7 # 10.
 #d_overtake = 3. # Distance at which overtake is initiated, in car length-unit
-a_max = 1. # max acceleration
-a_min = -1.
+a_max = 2. # max acceleration
+a_min = -2.
 angle_max = pi / 32
 angle_min = -pi / 32
-l_ref = [0.5, -0.5] #reference lateral position for normal and overtake lane 
+l_ref = [0.5*lane_width, -0.5*lane_width] #reference lateral position for normal and overtake lane 
 
-dx_min = 2. # safety longitudinal distance, in car length-unit
-dl_min = 0.5 # safety lateral distance, 1=lane width
+dx_min = 2. *lcar# safety longitudinal distance, in meters
+dl_min = 0.5*lane_width # safety lateral distance, 1=lane width
 
 # Fixed values
 N = 2
@@ -175,8 +179,7 @@ function solve_step(xt, case_str)
     # Apply bias
     useq .= useq .+ δuseq 
     # Apply control
-    ut = useq[1] + δuseq[1]    
-    # ??Should apply bias and control lines be switched??
+    ut = useq[1] 
     
     # Shift control sequence
     useq[1:end-1] = useq[2:end]
@@ -185,10 +188,11 @@ function solve_step(xt, case_str)
     return ut # [[a1, γ1], [a2, γ2]]
 end
 
-# warmup call to solve_step so it gets precompiled and cached by juliacall
-# Uses PyList(Any) since that is the specification juliacall actually passes xt as
+# warmup calls to solve_step so it gets precompiled and cached by juliacall.
+# Uses PyList(Any) since that is the type juliacall actually passes xt as.
 @compile_workload begin
     solve_step(PyList{Any}(pylist([0., 6., .5, -4., 6., .5])), "Platoon")
+    solve_step(PyList{Any}(pylist([0., 6., .5, -4., 6., .5])), "Overtake")
 end
 
 end
