@@ -38,32 +38,32 @@ RUN pip install --break-system-packages juliacall
 
 # Install Julia packages through juliacall so they land in the pyjuliapkg
 # environment that juliacall actually uses.
-# - Pkg.add downloads packages and resolves/updates the shared Manifest.
+# - Pkg.add downloads packages.
 # - DyNECT is installed from GitHub fork with changed project.toml file.
 # - Monviso is pinned to an older commit because newer Monviso versions
 #   removed the "VI" type that this DyNECT fork still relies on.
-# - Overtake is our own local package (src/gt_mpc/gt_mpc/julia/Overtake),
-#   added via Pkg.develop so it's loaded straight from that path - editing
-#   it later doesn't need a rebuild, just a relaunch (src/ is live-mounted
-#   at runtime the same way it's bind-mounted here at build time).
-RUN --mount=type=bind,source=./src,target=./src,readonly python3 -c "\
+# - Deliberately does NOT install Overtake.jl here so that editing it
+#   does not invalidate cache of the below packages.
+RUN python3 -c "\
 from juliacall import Main as jl; \
 jl.seval('import Pkg'); \
 jl.seval('Pkg.add(url=\"https://github.com/darnstrom/ParametricDAQP.jl\")'); \
 jl.seval('Pkg.add(url=\"https://github.com/nicomignoni/Monviso.jl\", rev=\"a99d4e447e39db8086c54906ab1d5d09a8f983a0\")'); \
 jl.seval('Pkg.add(\"DAQPBase\")'); \
 jl.seval('Pkg.add(url=\"https://github.com/harskarodlan/DyNECT\", rev=\"iterative_linearization\")'); \
-jl.seval('Pkg.develop(path=\"/svea_ws/src/gt_mpc/gt_mpc/julia/Overtake\")'); \
 "
 
-# Run this in a new process (not the one that ran Pkg.add above), so it
-# compiles against the final package versions written to disk - not
-# versions still sitting in that other process's memory. Otherwise the
-# cache doesn't match what's actually used later, so Julia recompiles
-# everything every time the app runs.
-# "using" DyNECT and DAQPBase precompiles them to speed up import time.
-RUN --mount=type=bind,source=./src,target=./src,readonly python3 -c "\
+# Bind mount and precompile local Overtake package seperately so that it compiles
+# against the final package versions written to disk above 
+# (needed not to trigger recompilation of these packages at every run).
+# - Pkg.develop instead of Pkg.add for bind mounting
+# - 'using Overtake' precompiles local Overtake package
+# Bind mounting means that the local Overtake.jl file is used, so it can be edited and 
+# re-run triggering only a ~1-2 min recompile of Overtake.jl, not the other packages.
+RUN --mount=type=bind,source=./src/gt_mpc/gt_mpc/julia/Overtake,target=/svea_ws/src/gt_mpc/gt_mpc/julia/Overtake,readonly python3 -c "\
 from juliacall import Main as jl; \
+jl.seval('import Pkg'); \
+jl.seval('Pkg.develop(path=\"/svea_ws/src/gt_mpc/gt_mpc/julia/Overtake\")'); \
 jl.seval('using Overtake'); \
 print('Julia packages OK'); \
 "
