@@ -41,10 +41,9 @@ At each time step:
     - return u1, u2 to overtake.py
 """
 
-# ALL PARAMETERS BELOW ARE IN SI UNITS (meters not carlengths)
 
 lcar = 0.523 # car length in meters
-lane_width = 0.5
+lane_width = 1. 
 
 # =================================================================================
 # DEFINE GAME, based on nonlinear.jl in DyNECT repo example
@@ -54,18 +53,18 @@ lane_width = 0.5
 #T_sim = 200 # Simulation length
 T_hor = 10
 Δt = 0.1 #sampling time
-v_ref = [1.2, 1.7] # [5., 7.] # reference speed for each agent in m/s. 
+v_ref = [0.86, 1.2] ./ lcar # [5., 7.] # reference speed for each agent in car length/s 
 v_min = -0.1 # 3.
-v_max = 1.7 # 10.
+v_max = 1.2 / lcar # 10.
 #d_overtake = 3. # Distance at which overtake is initiated, in car length-unit
 a_max = 2. # max acceleration
 a_min = -2.
 angle_max = pi / 32
 angle_min = -pi / 32
-l_ref = [0.5*lane_width, -0.5*lane_width] #reference lateral position for normal and overtake lane 
+l_ref = [0.5*lane_width, -0.5*lane_width] ./ lcar #reference lateral position for normal and overtake lane 
 
-dx_min = 2. *lcar# safety longitudinal distance, in meters
-dl_min = 0.5*lane_width # safety lateral distance, 1=lane width
+dx_min = 2. # safety longitudinal distance, in car length-unit
+dl_min = 0.5*lane_width / lcar # safety lateral distance, 1=lane width
 
 # Fixed values
 N = 2
@@ -80,10 +79,24 @@ nx = 6
 
 # Dynamics
 function unicycle_dynamics(x,u)
+    # x = state [p, v, l]
+    # u = control [a, γ] = [acceleration, steering]
+    # OBS: γ is angle of velocity vector, as calculated to be 
+    # the desired direction. 
+    # I.e. it assumes instantaneous steering to the desired direction.
+    # This is different from Ackerman-car model of SVEA, which takes
+    # steering command as a control input to the global yaw: 
+    #   From svea_core/svea_core/models/bicycle.py :
+    #       x += vel * np.cos(yaw) * dt
+    #       y += vel * np.sin(yaw) * dt
+    #       yaw += vel / self.L * np.tan(delta) * dt
+    #       vel += accel * dt
+    #       self.state = (x, y, yaw, vel)
+    #   where delta is steering angle input
     return [
-        x[2] * cos(u[2]),
-        u[1],
-        x[2] * sin(u[2])
+        x[2] * cos(u[2]),   # dp/dt
+        u[1],               # dv/dt
+        x[2] * sin(u[2])    # dl/dt
     ]
 end
 function f(x, u1, u2) # discretized unicycles
@@ -191,8 +204,8 @@ end
 # warmup calls to solve_step so it gets precompiled and cached by juliacall.
 # Uses PyList(Any) since that is the type juliacall actually passes xt as.
 @compile_workload begin
-    solve_step(PyList{Any}(pylist([0., 6., .5, -4., 6., .5])), "Platoon")
-    solve_step(PyList{Any}(pylist([0., 6., .5, -4., 6., .5])), "Overtake")
+    solve_step(PyList{Any}(pylist([0., 1., .5, -4., 1., .5])), "Platoon")
+    solve_step(PyList{Any}(pylist([0., 1., .5, -4., 1., .5])), "Overtake")
 end
 
 end
