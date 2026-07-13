@@ -84,6 +84,7 @@ def main(
                     "initial_pose_y_a": initial_pose_y_a,
                     "initial_pose_x_b": initial_pose_x_b,
                     "initial_pose_y_b": initial_pose_y_b,
+                    "initial_pose_a": initial_pose_a,
                 })
         
 

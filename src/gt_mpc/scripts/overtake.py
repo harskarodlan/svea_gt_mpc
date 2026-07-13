@@ -2,9 +2,13 @@
 
 import numpy as np
 
-from math import cos, sin
+from math import cos, sin, atan, atan2
 
 from svea_core import rosonic as rx
+
+# For steering/vehicle constants
+from svea_core.interfaces.actuation import ActuationInterface
+from svea_core.models.bicycle import Bicycle4D
 
 from gt_mpc.controllers.game_controller import GameController
 
@@ -20,12 +24,17 @@ qos_subber = QoSProfile(depth=10 # Size of the queue
 class OvertakeNode(rx.Node):
 
     DELTA_TIME = 0.1
-    MIN_DIST = 0.3 # threshold for vehicle gap before overtaking
+    MIN_DIST = 1.5 # threshold for vehicle gap before overtaking
     ROAD_HEADING = 0.9 # [rad] angle giving direction of road
+
+    L = Bicycle4D.L # m (svea_core/models/bicycle.py)
+    MAX_STEERING_ANGLE = ActuationInterface.MAX_STEERING_ANGLE
  
     # coordinates for reference point on road
     ROAD_X = None 
     ROAD_Y = None
+    # angle giving direction of road, set from initial_pose_a in on_startup
+    ROAD_HEADING = None 
 
     # Control publishers for each car
     ctrl_pub_a = rx.Publisher(Float64MultiArray, 'svea_a/gt_mpc/control')
@@ -36,6 +45,7 @@ class OvertakeNode(rx.Node):
     initial_pose_y_a = rx.Parameter(0.0)
     initial_pose_x_b = rx.Parameter(0.0)
     initial_pose_y_b = rx.Parameter(0.0)
+    initial_pose_a = rx.Parameter(0.0)
 
     def __init__(self, controller: GameController):
         self.controller = controller
@@ -57,6 +67,9 @@ class OvertakeNode(rx.Node):
         self.ROAD_X = (self.initial_pose_x_a + self.initial_pose_x_b)/2
         self.ROAD_Y = (self.initial_pose_y_a + self.initial_pose_y_b)/2
 
+        # set road direction as initial heading of cars 
+        self.ROAD_HEADING = self.initial_pose_a
+
         self.create_timer(self.DELTA_TIME, self.loop)
 
         self.get_logger().info("Overtake node successfully launched!")
@@ -77,6 +90,33 @@ class OvertakeNode(rx.Node):
         l = x
         return p, l
 
+    def wrap_to_pi(self,angle):
+        """Wrap an angle to [-pi, pi]."""
+        return atan2(sin(angle), cos(angle))
+    
+    def compute_steering(self, target_heading, yaw, v):
+        """
+        Compute steering angle based on target heading (gamma = u1[1] from solve_step(), wrt road)
+        and current global yaw.
+        The global target yaw is calculated as ROAD_HEADING - target_heading
+        The heading error is the difference between the target yaw 
+        and the current yaw wrapped to the range [-pi, pi]. 
+        The steering angle (delta, control input to vehicle) is then computed using the 
+        heading error to approximate the derivative dyaw/dt:
+            delta = actan(L/v * dyaw/dt)
+        """
+        # if velocity too low, L/v factor blows up, so just return 0 steering
+        if abs(v) < 0.1:
+            return 0.0
+
+        target_yaw = self.ROAD_HEADING - target_heading
+        heading_error = self.wrap_to_pi(target_yaw - yaw)
+        dyaw_dt = heading_error / self.DELTA_TIME
+
+        steering = atan(self.L / v * dyaw_dt)
+
+        # return steering clamped to [-MAX_STEERING_ANGLE, MAX_STEERING_ANGLE]
+        return max(-self.MAX_STEERING_ANGLE, min(self.MAX_STEERING_ANGLE, steering))
 
     def loop(self):
         if self.state_a is None or self.state_b is None:
@@ -84,8 +124,8 @@ class OvertakeNode(rx.Node):
             return
 
         # get state [x, y, yaw, vel] for each vehicle
-        x1, y1, _, v1 = self.state_a
-        x2, y2, _, v2 = self.state_b
+        x1, y1, yaw1, v1 = self.state_a
+        x2, y2, yaw2, v2 = self.state_b
 
         self.get_logger().info("State A: x1: {:.2f}, y1: {:.2f}, v1: {:.2f}".format(x1, y1, v1))
         self.get_logger().info("State B: x2: {:.2f}, y2: {:.2f}, v2: {:.2f}".format(x2, y2, v2))
@@ -112,14 +152,17 @@ class OvertakeNode(rx.Node):
         #u1_vel = v1 + u1[0]*self.DELTA_TIME
         #u2_vel = v2 + u2[0]*self.DELTA_TIME
 
+        steer1 = self.compute_steering(u1[1], yaw1, v1)
+        steer2 = self.compute_steering(u2[1], yaw2, v2)
+
         # Publish controls for SVEA-A
         ctrl_msg_a = Float64MultiArray()
-        ctrl_msg_a.data = [u1[1], u1[0]]
+        ctrl_msg_a.data = [steer1, u1[0]]
         self.ctrl_pub_a.publish(ctrl_msg_a)
 
         # Publish controls for SVEA-B
         ctrl_msg_b = Float64MultiArray()
-        ctrl_msg_b.data = [u2[1], u2[0]]
+        ctrl_msg_b.data = [steer2, u2[0]]
         self.ctrl_pub_b.publish(ctrl_msg_b)
 
 
