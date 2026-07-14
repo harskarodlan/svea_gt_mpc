@@ -24,7 +24,7 @@ qos_subber = QoSProfile(depth=10 # Size of the queue
 class OvertakeNode(rx.Node):
 
     DELTA_TIME = 0.1
-    MIN_DIST = 1.5 # threshold for vehicle gap before overtaking
+    MIN_DIST = 2 # threshold for vehicle gap before overtaking
     ROAD_HEADING = 0.9 # [rad] angle giving direction of road
 
     L = Bicycle4D.L # m (svea_core/models/bicycle.py)
@@ -84,11 +84,12 @@ class OvertakeNode(rx.Node):
     def get_state_b(self, msg):
         self.state_b = msg.data
 
-    def pos_wrt_road(self, x, y):
+    def pos_wrt_road(self, x, y, yaw):
         # TO BE IMPLEMENTED
         p = y
-        l = x
-        return p, l
+        l = -x
+        yaw_wrt_road = self.wrap_to_pi(yaw - self.ROAD_HEADING)
+        return p, l, yaw_wrt_road
 
     def wrap_to_pi(self,angle):
         """Wrap an angle to [-pi, pi]."""
@@ -132,18 +133,21 @@ class OvertakeNode(rx.Node):
 
         # get longitudinal (p) (along road) and 
         # lateral (l) (across road) positions wrt road
-        p1, l1 = self.pos_wrt_road(x1, y1)
-        p2, l2 = self.pos_wrt_road(x2, y2)
+        p1, l1, yaw1 = self.pos_wrt_road(x1, y1, yaw1)
+        p2, l2, yaw2 = self.pos_wrt_road(x2, y2, yaw2)
 
         # TEMPORARY HARDCODED STATES FOR PING TESTING
         #p1, l1 = 0.0, 0.5
         #p2, l2 = -4.0, 0.5 
 
         # decide wether overtaking based on longitudinal distance between cars
-        case = 'Overtake' if (p1 - p2) < self.MIN_DIST else 'Platoon'
+        if -self.MIN_DIST < (p1 - p2) < self.MIN_DIST:
+            case = 'Overtake'
+        else:
+            case = 'Platoon'
         self.get_logger().info(case)
 
-        u1, u2 = self.controller.compute_control([p1, v1, l1, p2, v2, l2], case)
+        u1, u2 = self.controller.compute_control([p1, v1, l1, yaw1, p2, v2, l2, yaw2], case)
 
         self.get_logger().info("Control A: accel1: {:.2f}, steer1: {:.2f}".format(u1[0], u1[1]))
         self.get_logger().info("Control B: accel2: {:.2f}, steer2: {:.2f}".format(u2[0], u2[1]))
@@ -152,17 +156,17 @@ class OvertakeNode(rx.Node):
         #u1_vel = v1 + u1[0]*self.DELTA_TIME
         #u2_vel = v2 + u2[0]*self.DELTA_TIME
 
-        steer1 = self.compute_steering(u1[1], yaw1, v1)
-        steer2 = self.compute_steering(u2[1], yaw2, v2)
+        # steer1 = self.compute_steering(u1[1], yaw1, v1)
+        # steer2 = self.compute_steering(u2[1], yaw2, v2)
 
         # Publish controls for SVEA-A
         ctrl_msg_a = Float64MultiArray()
-        ctrl_msg_a.data = [steer1, u1[0]]
+        ctrl_msg_a.data = [u1[1], u1[0]]
         self.ctrl_pub_a.publish(ctrl_msg_a)
 
         # Publish controls for SVEA-B
         ctrl_msg_b = Float64MultiArray()
-        ctrl_msg_b.data = [steer2, u2[0]]
+        ctrl_msg_b.data = [u2[1], u2[0]]
         self.ctrl_pub_b.publish(ctrl_msg_b)
 
 

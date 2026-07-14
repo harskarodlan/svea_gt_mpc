@@ -53,7 +53,7 @@ lane_width = 1.
 #T_sim = 200 # Simulation length
 T_hor = 10
 Δt = 0.1 #sampling time
-v_ref = [0.86, 1.2] ./ lcar # [5., 7.] # reference speed for each agent in car length/s 
+v_ref = [0.6, 1.1] ./ lcar # [5., 7.] # reference speed for each agent in car length/s
 v_min = -0.1 # 3.
 v_max = 1.2 / lcar # 10.
 #d_overtake = 3. # Distance at which overtake is initiated, in car length-unit
@@ -61,7 +61,11 @@ a_max = 2. # max acceleration
 a_min = -2.
 angle_max = pi / 32
 angle_min = -pi / 32
-l_ref = [0.5*lane_width, -0.5*lane_width] ./ lcar #reference lateral position for normal and overtake lane 
+l_ref = [-0.5*lane_width, 0.5*lane_width] ./ lcar #reference lateral position for normal and overtake lane
+
+L = 0.32 # wheelbase from svea_core/models/bicycle.py
+steer_max = 40*pi/180 # from ActuationInterface
+steer_min = -steer_max
 
 dx_min = 2. # safety longitudinal distance, in car length-unit
 dl_min = 0.5*lane_width / lcar # safety lateral distance, 1=lane width
@@ -69,7 +73,7 @@ dl_min = 0.5*lane_width / lcar # safety lateral distance, 1=lane width
 # Fixed values
 N = 2
 nu = [2,2]
-nx = 6
+nx = 8 # 6
 
 ## Initialization
 
@@ -99,8 +103,28 @@ function unicycle_dynamics(x,u)
         x[2] * sin(u[2])    # dl/dt
     ]
 end
+
+# Dynamics
+function bicycle_dynamics(x,u)
+    # x = state [p, v, l, yaw]
+    # u = control [a, delta] = [acceleration, steering]
+    #   From svea_core/svea_core/models/bicycle.py :
+    #       x += vel * np.cos(yaw) * dt
+    #       y += vel * np.sin(yaw) * dt
+    #       yaw += vel / self.L * np.tan(delta) * dt
+    #       vel += accel * dt
+    #       self.state = (x, y, yaw, vel)
+    #   where delta is steering angle input
+    return [
+        x[2] * cos(x[4]),   # dp/dt
+        u[1],               # dv/dt
+        x[2] * sin(x[4]),    # dl/dt
+        x[2]/L * tan(u[2])
+    ]
+end
+
 function f(x, u1, u2) # discretized unicycles
-    dx = vcat(unicycle_dynamics(x[1:3],u1), unicycle_dynamics(x[4:6],u2))
+    dx = vcat(bicycle_dynamics(x[1:4],u1), bicycle_dynamics(x[5:8],u2))
     return x .+ Δt .* dx
 end
 
@@ -114,41 +138,45 @@ end
 
 # Define objectives
 # J = ‖v₁ - vᵈᵉˢ‖² + ‖l₁ - lᵈᵉˢ‖² + 5 * a² + 20 * γ²
-J1_platoon(x, u1, u2) = (x[2] - v_ref[1])^2 + (x[3] - l_ref[1])^2 + 5 * u1[1]^2 + 50 * u1[2]^2
-J2_platoon(x, u1, u2) = (x[5] - v_ref[2])^2 + (x[6] - l_ref[1])^2 + 5 * u2[1]^2 + 50 * u2[2]^2
+J1_platoon(x, u1, u2) = (x[2] - v_ref[1])^2 + 10 * (x[3] - l_ref[1])^2 + 5 * u1[1]^2 + 50 * u1[2]^2
+J2_platoon(x, u1, u2) = (x[6] - v_ref[2])^2 + 10 * (x[7] - l_ref[1])^2 + 5 * u2[1]^2 + 50 * u2[2]^2
 J_platoon = [J1_platoon, J2_platoon]
 
-J1_overtake(x, u1, u2) = (x[2] - v_ref[1])^2 + (x[3] - l_ref[1])^2 + 5 * u1[1]^2 + 50 * u1[2]^2
-J2_overtake(x, u1, u2) = (x[5] - v_ref[2])^2 + (x[6] - l_ref[2])^2 + 5 * u2[1]^2 + 50 * u2[2]^2
+J1_overtake(x, u1, u2) = (x[2] - v_ref[1])^2 + 10 * (x[3] - l_ref[1])^2 + 5 * u1[1]^2 + 50 * u1[2]^2
+J2_overtake(x, u1, u2) = (x[6] - v_ref[2])^2 + 10 * (x[7] - l_ref[2])^2 + 5 * u2[1]^2 + 50 * u2[2]^2
 J_overtake = [J1_overtake, J2_overtake]
 
 # State constraints
 gx(x) = [
-    1 - ( (x[1] - x[4])^2 / dx_min^2 + (x[3] - x[6])^2 / dl_min^2 ); # Safety distance: Ellipse
+    1 - ( (x[1] - x[5])^2 / dx_min^2 + (x[3] - x[7])^2 / dl_min^2 ); # Safety distance: Ellipse
     v_min - x[2];  # min speed agent 1 
     x[2] - v_max;  # Max speed agent 1
-    v_min - x[5];  # min speed agent 2
-    x[5] - v_max;  # Max speed agent 2
+    v_min - x[6];  # min speed agent 2
+    x[6] - v_max;  # Max speed agent 2
+    angle_min - x[4];  # min yaw agent 1
+    x[4] - angle_max;  # Max yaw agent 1
+    angle_min - x[8];  # min yaw agent 2
+    x[8] - angle_max;  # Max yaw agent 2
 ]
 
 gloc1(u1) = [
         a_min - u1[1];
         u1[1] - a_max;
-        angle_min - u1[2];
-        u1[2] - angle_max ] # Input constraints agent 1
+        steer_min - u1[2];
+        u1[2] - steer_max ] # Input constraints agent 1
 gloc2(u2) = [
         a_min - u2[1];
         u2[1] - a_max;
-        angle_min - u2[2];
-        u2[2] - angle_max ] # Input constraints agent 2
+        steer_min - u2[2];
+        u2[2] - steer_max ] # Input constraints agent 2
 gloc = [gloc1, gloc2]
 
 gu(u1,u2) = -1.0 # Dummy
 
 # Define games
 game = Dict(
-    :Platoon  => DyNECT.DynGame(f, J_platoon,  gx, gu, gloc, nx, nu, 5, 1, [4,4], N),
-    :Overtake => DyNECT.DynGame(f, J_overtake, gx, gu, gloc, nx, nu, 5, 1, [4,4], N),
+    :Platoon  => DyNECT.DynGame(f, J_platoon,  gx, gu, gloc, nx, nu, 9, 1, [4,4], N),
+    :Overtake => DyNECT.DynGame(f, J_overtake, gx, gu, gloc, nx, nu, 9, 1, [4,4], N),
 )
 
 
@@ -175,7 +203,7 @@ function solve_step(xt, case_str)
 
     # ----------------------------------------------------------
     # Linearise and solve NE to get control deviations δuseq
-    # Copied from nonlinear.jl example in DyNECT repo
+    # Based ons nonlinear.jl example in DyNECT repo
     # ----------------------------------------------------------
     lq_game = DyNECT.LQapprox(game[case], useq, xt, T_hor) # state/input are δx,δu: deviation from reference input/state
     mpavi = DyNECT.DynLQGame2mpAVI(lq_game)
@@ -184,7 +212,12 @@ function solve_step(xt, case_str)
     exitflag = sol[3]
     if exitflag < 0
         println("infeasible!")
-        return [[0.0, 0.0], [0.0, 0.0]]
+        # if infeasible, use last time steps controls instead
+        ut = useq[1]
+        # Shift control sequence
+        useq[1:end-1] = useq[2:end]
+        useq[end] = [zeros(nui) for nui in nu]
+        return ut
     end
     exitflag >0 && println("OK")
     δuseq = DyNECT.arrange_vector_as_time_seq(sol[1], nu, N, T_hor)
@@ -204,8 +237,8 @@ end
 # warmup calls to solve_step so it gets precompiled and cached by juliacall.
 # Uses PyList(Any) since that is the type juliacall actually passes xt as.
 @compile_workload begin
-    solve_step(PyList{Any}(pylist([0., 1., .5, -4., 1., .5])), "Platoon")
-    solve_step(PyList{Any}(pylist([0., 1., .5, -4., 1., .5])), "Overtake")
+    solve_step(PyList{Any}(pylist([0., 1., .5, .0, -4., 1., .5, .0])), "Platoon")
+    solve_step(PyList{Any}(pylist([0., 1., .5, .0, -4., 1., .5, .0])), "Overtake")
 end
 
 end

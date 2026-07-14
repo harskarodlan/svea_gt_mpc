@@ -19,14 +19,14 @@ class GameController:
         Compute the control actions (steering, acceleration) using game-theoretic MPC.
         
         :param state: Current joint state of the vehicles in SI units
-                      [p1, v1, l1, p2, v2, l2]
+                      [p1, v1, l1, yaw1, p2, v2, l2, yaw2]
         :param mode: Current case as string, either "platoon" or "overtake"
         :return: controls u1, u2 in SI units
         """
         # Overtake.jl expects state in car lenght units, so convert from meters
-        p1, v1, l1, p2, v2, l2 = state
-        state_lcar = [p1/self.LCAR, v1/self.LCAR, l1/self.LCAR,
-                      p2/self.LCAR, v2/self.LCAR, l2/self.LCAR]
+        p1, v1, l1, yaw1, p2, v2, l2, yaw2 = state
+        state_lcar = [p1/self.LCAR, v1/self.LCAR, l1/self.LCAR, yaw1,
+                      p2/self.LCAR, v2/self.LCAR, l2/self.LCAR, yaw2]
         # compute control at this time step ut = [u1, u2]
         ut = jl.Overtake.solve_step(state_lcar, case)
 
