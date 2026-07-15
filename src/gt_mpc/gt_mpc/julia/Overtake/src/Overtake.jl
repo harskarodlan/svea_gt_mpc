@@ -14,7 +14,6 @@ using PythonCall: PyList, pylist   # to build the same argument type juliacall p
 #using Random
 #Random.seed!(1234)
 
-
 """
 On startup:
     - game_controller.py runs
@@ -61,7 +60,7 @@ a_max = 2. # max acceleration
 a_min = -2.
 angle_max = pi / 32
 angle_min = -pi / 32
-l_ref = [-0.5*lane_width, 0.5*lane_width] ./ lcar #reference lateral position for normal and overtake lane
+l_ref = [0.5*lane_width, -0.5*lane_width] ./ lcar #reference lateral position for normal and overtake lane
 
 L = 0.32 # wheelbase from svea_core/models/bicycle.py
 steer_max = 40*pi/180 # from ActuationInterface
@@ -118,7 +117,7 @@ function bicycle_dynamics(x,u)
     return [
         x[2] * cos(x[4]),   # dp/dt
         u[1],               # dv/dt
-        x[2] * sin(x[4]),    # dl/dt
+        -x[2] * sin(x[4]),    # dl/dt
         x[2]/L * tan(u[2])
     ]
 end
@@ -193,7 +192,7 @@ useq = [[zeros(nui) for nui in nu] for t in 1:T_hor]
 function solve_step(xt, case_str)
     # JuliaCall passes Python lists as PyList(Any).
     # Convert to Vector{Float64} as expected by LQapprox.
-    xt = convert(Vector{Float64}, xt) 
+    xt = convert(Vector{Float64}, xt)
 
     # Python passes the case, eg "Platoon" as string
     # Julia receives it as a Julia String
@@ -239,6 +238,8 @@ end
 @compile_workload begin
     solve_step(PyList{Any}(pylist([0., 1., .5, .0, -4., 1., .5, .0])), "Platoon")
     solve_step(PyList{Any}(pylist([0., 1., .5, .0, -4., 1., .5, .0])), "Overtake")
+    # deliberately infeasible (v1 far exceeds v_max) to precompile the exitflag<0 branch
+    solve_step(PyList{Any}(pylist([0., 100., .5, .0, -4., 1., .5, .0])), "Platoon")
 end
 
 end

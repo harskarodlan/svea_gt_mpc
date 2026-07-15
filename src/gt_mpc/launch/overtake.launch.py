@@ -1,24 +1,30 @@
 #! /usr/bin/env python3
 from better_launch import BetterLaunch, launch_this
 
-MAP_NAME = "sml"
+# MAP_NAME = "sml"
+
+# same map image as floor2, but no matching .obstacles.yaml, 
+# so sim_lidar's obstacle ray-casting never runs (see simulation.launch.py)
+# (sim_lidar was taking too much time, causing scheduling conflict with controller.
+# Since obstacle detection is not needed in this scenario, we dont need sim_lidar.)
+MAP_NAME = "floor2_no_obstacles" 
 
 @launch_this
 def main(
     is_sim: bool = True,
     use_foxglove: bool = True,
     # FOR FLOOR2
-    # initial_pose_x_b: float = -6.9,
-    # initial_pose_y_b: float = -15.4,
-    # initial_pose_a: float = +0.9,
-    # initial_pose_x_a: float = -5.2,
-    # initial_pose_y_a: float = -12.4,
+    initial_pose_x_b: float = -7.3434,
+    initial_pose_y_b: float = -15.1011,
+    initial_pose_a: float = +0.9,
+    initial_pose_x_a: float = -5.2,
+    initial_pose_y_a: float = -12.4,
     # FOR SML
-    initial_pose_x_b: float = 0.5,
-    initial_pose_y_b: float = -5.0,
-    initial_pose_a: float = +1.57079632679,
-    initial_pose_x_a: float = 0.5,
-    initial_pose_y_a: float = 0.0,
+    # initial_pose_x_b: float = 0.5,
+    # initial_pose_y_b: float = -5.0,
+    # initial_pose_a: float = +1.57079632679,
+    # initial_pose_x_a: float = 0.5,
+    # initial_pose_y_a: float = 0.0,
     points: str = '[[-2.3, -7.1], [10.5, 11.7], [5.7,  15.0], [-7.0, -4.0]]',
 ):
     bl = BetterLaunch()
