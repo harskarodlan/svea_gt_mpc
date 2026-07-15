@@ -29,6 +29,7 @@ class OvertakeNode(rx.Node):
 
     L = Bicycle4D.L # m (svea_core/models/bicycle.py)
     MAX_STEERING_ANGLE = ActuationInterface.MAX_STEERING_ANGLE
+    LANE_WIDTH = 1.0 # must match lane_width in Overtake.jl
  
     # coordinates for reference point on road
     ROAD_X = None 
@@ -85,9 +86,12 @@ class OvertakeNode(rx.Node):
         self.state_b = msg.data
 
     def pos_wrt_road(self, x, y, yaw):
-        # TO BE IMPLEMENTED
-        p = y
-        l = -x
+        dx = x - self.ROAD_X
+        dy = y - self.ROAD_Y
+        p = dx * cos(self.ROAD_HEADING) + dy * sin(self.ROAD_HEADING)
+        l = dx * sin(self.ROAD_HEADING) - dy * cos(self.ROAD_HEADING) + 0.5 * self.LANE_WIDTH
+        # p = y
+        # l = x
         yaw_wrt_road = self.wrap_to_pi(yaw - self.ROAD_HEADING)
         return p, l, yaw_wrt_road
 
