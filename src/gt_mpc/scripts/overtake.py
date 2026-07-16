@@ -24,7 +24,7 @@ qos_subber = QoSProfile(depth=10 # Size of the queue
 class OvertakeNode(rx.Node):
 
     DELTA_TIME = 0.1
-    MIN_DIST = 2 # threshold for vehicle gap before overtaking
+    MIN_DIST = 2 # [m] threshold for vehicle gap before overtaking
     ROAD_HEADING = 0.9 # [rad] angle giving direction of road
 
     L = Bicycle4D.L # m (svea_core/models/bicycle.py)
