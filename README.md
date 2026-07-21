@@ -1,5 +1,5 @@
 # SVEA Starter Suite
-test
+
 ### Quicklinks:
 - [SVEA Website](https://svea.eecs.kth.se)
 - [SVEA Docs](https://kth-sml.github.io/svea)
