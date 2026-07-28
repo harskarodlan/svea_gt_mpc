@@ -12,7 +12,7 @@ from svea_core.models.bicycle import Bicycle4D
 
 from gt_mpc.controllers.game_controller import GameController
 
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray, Bool
 
 from foxglove_msgs.msg import PoseInFrame
 
@@ -24,8 +24,7 @@ qos_subber = QoSProfile(depth=10 # Size of the queue
 class OvertakeNode(rx.Node):
 
     DELTA_TIME = 0.1
-    MIN_DIST = 2 # [m] threshold for vehicle gap before overtaking
-    ROAD_HEADING = 0.9 # [rad] angle giving direction of road
+    MIN_DIST = 1.5 # [m] threshold for vehicle gap before overtaking
 
     L = Bicycle4D.L # m (svea_core/models/bicycle.py)
     MAX_STEERING_ANGLE = ActuationInterface.MAX_STEERING_ANGLE
@@ -34,12 +33,8 @@ class OvertakeNode(rx.Node):
     # coordinates for reference point on road
     ROAD_X = None 
     ROAD_Y = None
-    # angle giving direction of road, set from initial_pose_a in on_startup
+    # [rad] angle giving direction of road, set from initial_pose_a in on_startup
     ROAD_HEADING = None 
-
-    # Control publishers for each car
-    ctrl_pub_a = rx.Publisher(Float64MultiArray, 'svea_a/gt_mpc/control')
-    ctrl_pub_b = rx.Publisher(Float64MultiArray, 'svea_b/gt_mpc/control')
 
     # get initial positions from param in launch file
     initial_pose_x_a = rx.Parameter(0.0)
@@ -47,6 +42,18 @@ class OvertakeNode(rx.Node):
     initial_pose_x_b = rx.Parameter(0.0)
     initial_pose_y_b = rx.Parameter(0.0)
     initial_pose_a = rx.Parameter(0.0)
+
+    # control/state topics will be namespaced for each car but
+    # the namespace of the car varies from 'self' and 'svea_a'/'svea_b'
+    # depending on if the car is simulated or real.
+    # Hence we take these topic names as parameters from the launch file.
+    ctrl_topic_a = rx.Parameter('svea_a/gt_mpc/control')
+    ctrl_topic_b = rx.Parameter('svea_b/gt_mpc/control')
+    ctrl_pub_a = rx.Publisher(Float64MultiArray, ctrl_topic_a)
+    ctrl_pub_b = rx.Publisher(Float64MultiArray, ctrl_topic_b)
+
+    state_topic_a = rx.Parameter('svea_a/gt_mpc/state')
+    state_topic_b = rx.Parameter('svea_b/gt_mpc/state')
 
     def __init__(self, controller: GameController):
         self.controller = controller
@@ -60,6 +67,8 @@ class OvertakeNode(rx.Node):
     def on_startup(self):
         self.state_a = None # [x, y, yaw, vel] published from car_bridge
         self.state_b = None
+
+        self.start = False
 
         self.get_logger().info(f"initial_pose_x_a: {self.initial_pose_x_a}")
 
@@ -76,14 +85,18 @@ class OvertakeNode(rx.Node):
         self.get_logger().info("Overtake node successfully launched!")
 
     # Subscribe to SVEA-A's state
-    @rx.Subscriber(Float64MultiArray, 'svea_a/gt_mpc/state')
+    @rx.Subscriber(Float64MultiArray, state_topic_a)
     def get_state_a(self, msg):
         self.state_a = msg.data
 
     # Subscribe to SVEA-B's state
-    @rx.Subscriber(Float64MultiArray, 'svea_b/gt_mpc/state')
+    @rx.Subscriber(Float64MultiArray, state_topic_b)
     def get_state_b(self, msg):
         self.state_b = msg.data
+
+    @rx.Subscriber(Bool, '/start')
+    def get_start(self, msg):
+        self.start = msg.data
 
     def pos_wrt_road(self, x, y, yaw):
         dx = x - self.ROAD_X
@@ -145,7 +158,7 @@ class OvertakeNode(rx.Node):
         #p2, l2 = -4.0, 0.5 
 
         # decide wether overtaking based on longitudinal distance between cars
-        if -self.MIN_DIST < (p1 - p2) < self.MIN_DIST:
+        if 0 < (p1 - p2) < self.MIN_DIST:
             case = 'Overtake'
         else:
             case = 'Platoon'
