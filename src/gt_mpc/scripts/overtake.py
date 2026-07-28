@@ -94,6 +94,7 @@ class OvertakeNode(rx.Node):
     def get_state_b(self, msg):
         self.state_b = msg.data
 
+    # subscribe to go signal
     @rx.Subscriber(Bool, '/start')
     def get_start(self, msg):
         self.start = msg.data
@@ -139,6 +140,10 @@ class OvertakeNode(rx.Node):
     def loop(self):
         if self.state_a is None or self.state_b is None:
             self.get_logger().info("No state yet!")
+            return
+
+        # wait for go signal
+        if self.start is False:
             return
 
         # get state [x, y, yaw, vel] for each vehicle
