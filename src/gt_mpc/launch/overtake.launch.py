@@ -14,11 +14,11 @@ def main(
     is_sim: bool = True,
     use_foxglove: bool = True,
     # FOR FLOOR2
-    initial_pose_x_b: float = -15.053274400204728,
-    initial_pose_y_b: float = -16.30948371262398,
-    initial_pose_a: float = +0.966039741,
-    initial_pose_x_a: float = -12.21323507096685,
-    initial_pose_y_a: float = -12.097859410179788,
+    initial_pose_x_b: float = 0.6708117560469602,
+    initial_pose_y_b: float = -3.0145578378188853,
+    initial_pose_a: float = +0.9808750396 ,
+    initial_pose_x_a: float = 1.8891607445253298,
+    initial_pose_y_a: float = -1.193549689046339,
     sim_car: int = 1,
     # FOR SML
     # initial_pose_x_b: float = 0.5,
