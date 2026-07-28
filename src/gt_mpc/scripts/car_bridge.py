@@ -37,7 +37,6 @@ class CarBridgeNode(rx.Node):
     @rx.Subscriber(Float64MultiArray, 'gt_mpc/control')
     def send_control(self, msg):
         steering, velocity = msg.data
-        # self.get_logger().info(f"Steering: {steering}, Velocity: {velocity}")
         self.actuation.send_control(steering, velocity)
 
 

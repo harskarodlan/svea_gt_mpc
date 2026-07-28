@@ -52,7 +52,7 @@ lane_width = 1.
 #T_sim = 200 # Simulation length
 T_hor = 10
 Δt = 0.1 #sampling time
-v_ref = [0.6, 1.1] ./ lcar # [5., 7.] # reference speed for each agent in car length/s
+v_ref = [0.25, 0.6] ./ lcar # [5., 7.] # reference speed for each agent in car length/s
 v_min = -0.1 # 3.
 v_max = 1.2 / lcar # 10.
 #d_overtake = 3. # Distance at which overtake is initiated, in car length-unit
@@ -66,7 +66,7 @@ L = 0.32 # wheelbase from svea_core/models/bicycle.py
 steer_max = 40*pi/180 # from ActuationInterface
 steer_min = -steer_max
 
-dx_min = 2. # safety longitudinal distance, in car length-unit
+dx_min = 1. # safety longitudinal distance, in car length-unit
 dl_min = 0.5*lane_width / lcar # safety lateral distance, 1=lane width
 
 # Fixed values
