@@ -32,50 +32,53 @@ def main(
 
     if not is_sim:
         if sim_car == 1:
-            # REAL SVEA
+            car_a_ns, car_b_ns = 'svea_a', 'self'
 
-            # Start SVEA in real-world mode
-            # default name="self"
-            bl.include("svea_core", "svea.launch.py",
-                    is_sim=is_sim, # = False
-                    map_name=MAP_NAME,
-                    initial_pose_x=initial_pose_x_a,
-                    initial_pose_y=initial_pose_y_a,
-                    initial_pose_a=initial_pose_a)
-            
-            with bl.group("self"):
-                bl.node("gt_mpc", "car_bridge.py",
-                            name="car_bridge",
-                            params={
-                                # "points": points,
-                                "localization/base_frame": f"{name}/base_link",
-                            })
-                
-            # Sim SVEA
-            bl.include("svea_core", "svea.launch.py",
-                       name="svea_a",
-                       is_sim=True,
-                       is_indoor=True,
-                       map_name=MAP_NAME,
-                       initial_pose_x=init_x,
-                       initial_pose_y=init_y,
-                       initial_pose_a=init_a)
+            INITIAL_POSES = {
+                car_a_ns: (initial_pose_x_a, initial_pose_y_a, initial_pose_a),
+                car_b_ns: (initial_pose_x_b, initial_pose_y_b, initial_pose_a),
+            }
 
-            # Add namespace to car_bridge node so that it can be run for each SVEA independently
-            with bl.group("svea_a"):
+            for car_ns, (init_x, init_y, init_a) in INITIAL_POSES.items():
+                if car_ns == 'self':
+                    # REAL SVEA
+                    # Start SVEA in real-world mode
+                    # default name="self"
+                    bl.include("svea_core", "svea.launch.py",
+                            is_sim=is_sim, # = False
+                            map_name=MAP_NAME,
+                            initial_pose_x=init_x,
+                            initial_pose_y=init_y,
+                            initial_pose_a=init_a)
+                else:
+                    # Sim SVEA
+                    bl.include("svea_core", "svea.launch.py",
+                            name=car_ns,
+                            is_sim=True,
+                            is_indoor=True,
+                            map_name=MAP_NAME,
+                            use_map=False,
+                            use_rtk=False,
+                            use_foxglove=False,
+                            initial_pose_x=init_x,
+                            initial_pose_y=init_y,
+                            initial_pose_a=init_a)
 
-                bl.node("gt_mpc", "car_bridge.py",
-                        name="car_bridge",
-                        params={
-                            # "points": points,
-                            "localization/base_frame": f"{name}/base_link",
-                        })
+                # start car_bridge
+                with bl.group(car_ns):
+                    bl.node("gt_mpc", "car_bridge.py",
+                                name="car_bridge",
+                                params={
+                                    # "points": points,
+                                    "localization/base_frame": f"{car_ns}/base_link",
+                                    "name": car_ns
+                                })
 
             # The SVEA launch system is built to be compatible with multiple SVEAs running simultaneously.
             # Default name is "self", so to add the pure_pursuit node we need to namespace accordingly.
         # ====== OVERTAKE CONTROLLER ======================
 
-        car_a_ns, car_b_ns = 'self', 'svea_a'
+        
         bl.node("gt_mpc", "overtake.py",
                 name="overtake",
                 params={
@@ -140,6 +143,5 @@ def main(
                 })
 
 
-    bl.include("svea_core", "map_and_foxglove.launch.py",
-               map_name=MAP_NAME,
-               use_foxglove=use_foxglove)
+    if use_foxglove:
+        bl.include("foxglove_bridge", "foxglove_bridge_launch.xml")

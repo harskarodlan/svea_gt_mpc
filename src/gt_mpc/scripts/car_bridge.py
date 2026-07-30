@@ -13,6 +13,9 @@ class CarBridgeNode(rx.Node):
     
     DELTA_TIME = 0.1
 
+    steering: float = 0.0
+    velocity: float = 0.0
+
     # Interfaces
     
     actuation = ActuationInterface(use_acceleration=True)
@@ -20,6 +23,8 @@ class CarBridgeNode(rx.Node):
 
     # publish state to eg. svea_a/gt_mpc/state
     state_pub = rx.Publisher(Float64MultiArray, 'gt_mpc/state')
+
+    name = rx.Parameter("")
 
     def on_startup(self):
         self.create_timer(self.DELTA_TIME, self.publish_state)
@@ -31,13 +36,19 @@ class CarBridgeNode(rx.Node):
         state_msg = Float64MultiArray()
         state_msg.data = [x, y, yaw, vel]
         self.state_pub.publish(state_msg)
+
+        if self.name == 'self':
+            self.actuation.send_control(self.steering, self.velocity * -1.0)
+            self.get_logger().info(f"Steering: {self.steering}, Velocity: {self.velocity}")
+        else:
+            self.actuation.send_control(self.steering, self.velocity)
     
     # Subscribe to control eg. svea_a/gt_mpc/control
     # and send to actuation
     @rx.Subscriber(Float64MultiArray, 'gt_mpc/control')
     def send_control(self, msg):
-        steering, velocity = msg.data
-        self.actuation.send_control(steering, velocity)
+        self.steering, self.velocity = msg.data
+    
 
 
 if __name__ == '__main__':
