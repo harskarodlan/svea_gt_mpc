@@ -2,6 +2,24 @@
 
 Game-theoretic model predictive control for application on SVEA platform.
 
+This repo implements a receding-horizon, game-theoretic MPC controller for a
+two-vehicle highway platoon/overtake scenario. At each control step, the
+controller computes an open-loop Nash equilibrium over a prediction horizon,
+explicitly accounting for the interaction between the two vehicles rather
+than treating the other vehicle as a static obstacle, and applies the first
+input of the resulting sequence to each car. The Nash equilibrium is found by
+linearizing the vehicle dynamics and elliptical collision-avoidance
+constraints around a nominal trajectory at every step and solving the
+resulting variational inequality with the DR-DAQP solver, fast enough to run
+within the controller's 10Hz sampling rate. The controller runs both in
+simulation and on real SVEA cars.
+
+This implementation is based on:
+
+> Emilio Benenati and Giuseppe Belgioioso, "Receding-horizon game theoretic
+> control for interaction-aware autonomous vehicles," Department of Decision
+> and Control Systems, KTH Royal Institute of Technology.
+
 # Installation
 
 ## Install Docker Engine
